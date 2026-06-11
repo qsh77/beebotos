@@ -1,6 +1,6 @@
 use beebotos_launcher::{
     load_env_config, render_env_config, EnvConfig, ALLOW_NETWORK_KEY, IMAGE_GENERATION_KEY,
-    TEXT_MODEL_KEY, VIDEO_GENERATION_KEY,
+    JWT_SECRET_KEY, TEXT_MODEL_KEY, VIDEO_GENERATION_KEY,
 };
 
 #[test]
@@ -41,6 +41,7 @@ DEEPSEEK_API_KEY=old-text
     assert!(rendered.contains(&format!("{IMAGE_GENERATION_KEY}=new-image")));
     assert!(rendered.contains(&format!("{VIDEO_GENERATION_KEY}=new-video")));
     assert!(rendered.contains(&format!("{ALLOW_NETWORK_KEY}=1")));
+    assert!(rendered.contains(&format!("{JWT_SECRET_KEY}=bee-jwt-")));
     assert!(!rendered.contains("old-text"));
 }
 
@@ -60,4 +61,24 @@ fn render_env_config_keeps_blank_values_out_of_file() {
     assert!(rendered.contains(&format!("{IMAGE_GENERATION_KEY}=image-key")));
     assert!(!rendered.contains(&format!("{VIDEO_GENERATION_KEY}=")));
     assert!(rendered.contains(&format!("{ALLOW_NETWORK_KEY}=1")));
+    assert!(rendered.contains(&format!("{JWT_SECRET_KEY}=bee-jwt-")));
+}
+
+#[test]
+fn render_env_config_preserves_existing_valid_jwt_secret() {
+    let secret = "existing-local-jwt-secret-at-least-32-characters";
+    let rendered = render_env_config(
+        &format!("{JWT_SECRET_KEY}={secret}\n"),
+        &EnvConfig::default(),
+    );
+
+    assert!(rendered.contains(&format!("{JWT_SECRET_KEY}={secret}")));
+}
+
+#[test]
+fn render_env_config_replaces_short_jwt_secret() {
+    let rendered = render_env_config(&format!("{JWT_SECRET_KEY}=short\n"), &EnvConfig::default());
+
+    assert!(!rendered.contains(&format!("{JWT_SECRET_KEY}=short")));
+    assert!(rendered.contains(&format!("{JWT_SECRET_KEY}=bee-jwt-")));
 }

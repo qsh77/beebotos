@@ -78,7 +78,7 @@ impl LauncherApp {
                 self.status_label.set_text("服务状态：配置已保存");
                 self.output_box.set_text_unix2dos(
                     "配置已保存到安装目录 .env。\nBEE_ALLOW_NETWORK=1 已写入。\n密钥不会写入 \
-                     config/beebotos.toml。",
+                     config/beebotos.toml。\n本机 JWT secret 会自动补齐。",
                 );
             }
             Err(err) => {
@@ -104,6 +104,15 @@ impl LauncherApp {
     }
 
     fn run_service_action(&self, action: &'static str, title: &'static str) {
+        if matches!(action, "start" | "restart") {
+            if let Err(err) = write_env_file(&self.env_path(), &self.current_config()) {
+                self.status_label.set_text("服务状态：配置保存失败");
+                self.output_box
+                    .set_text_unix2dos(&format!("启动前保存 .env 失败：{err}"));
+                return;
+            }
+        }
+
         let app_dir = self.app_dir.clone();
         let secrets = self.secret_values();
         self.spawn_task(title, move || {

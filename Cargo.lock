@@ -2186,6 +2186,7 @@ dependencies = [
  "anyhow",
  "native-windows-gui",
  "open",
+ "uuid",
 ]
 
 [[package]]

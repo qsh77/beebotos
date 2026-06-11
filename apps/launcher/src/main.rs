@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 use anyhow::{anyhow, Context};
-use beebotos_launcher::{parse_launcher_command, LauncherCommand, WEB_CONSOLE_URL};
+use beebotos_launcher::{
+    parse_launcher_command, read_env_file, write_env_file, LauncherCommand, WEB_CONSOLE_URL,
+};
 
 const RUNNER_SCRIPT: &str = "beebotos-run.ps1";
 
@@ -20,6 +22,7 @@ fn run(command: LauncherCommand) -> anyhow::Result<()> {
     match command {
         LauncherCommand::Ui => run_ui(root),
         LauncherCommand::Start => {
+            ensure_runtime_env(&root)?;
             run_runner(&root, "start")?;
             Ok(())
         }
@@ -28,6 +31,7 @@ fn run(command: LauncherCommand) -> anyhow::Result<()> {
             Ok(())
         }
         LauncherCommand::Restart => {
+            ensure_runtime_env(&root)?;
             run_runner(&root, "restart")?;
             Ok(())
         }
@@ -55,6 +59,12 @@ fn logs_path(root: &Path) -> PathBuf {
 
 fn runner_path(root: &Path) -> PathBuf {
     root.join(RUNNER_SCRIPT)
+}
+
+fn ensure_runtime_env(root: &Path) -> anyhow::Result<()> {
+    let path = root.join(".env");
+    let config = read_env_file(&path).context("读取 .env 失败")?;
+    write_env_file(&path, &config).context("准备 .env 失败")
 }
 
 fn open_logs(root: &Path) -> anyhow::Result<()> {

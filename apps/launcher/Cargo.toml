@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0"
 open = "5.0"
+uuid = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 native-windows-gui = "1.0.13"

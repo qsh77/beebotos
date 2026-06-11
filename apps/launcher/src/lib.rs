@@ -1,9 +1,12 @@
 use std::path::Path;
 
+use uuid::Uuid;
+
 pub const TEXT_MODEL_KEY: &str = "DEEPSEEK_API_KEY";
 pub const IMAGE_GENERATION_KEY: &str = "IMAGE_GENERATION_API_KEY";
 pub const VIDEO_GENERATION_KEY: &str = "VIDEO_GENERATION_API_KEY";
 pub const ALLOW_NETWORK_KEY: &str = "BEE_ALLOW_NETWORK";
+pub const JWT_SECRET_KEY: &str = "BEE__JWT__SECRET";
 pub const WEB_CONSOLE_URL: &str = "http://localhost:8090";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +64,11 @@ pub fn load_env_config(content: &str) -> EnvConfig {
 }
 
 pub fn render_env_config(existing: &str, config: &EnvConfig) -> String {
+    let jwt_secret = find_env_value(existing, JWT_SECRET_KEY)
+        .filter(|value| value.len() >= 32)
+        .map(str::to_owned)
+        .unwrap_or_else(generate_jwt_secret);
+
     let mut lines = Vec::new();
     for line in existing.lines() {
         if parse_env_line(line)
@@ -84,6 +92,7 @@ pub fn render_env_config(existing: &str, config: &EnvConfig) -> String {
         &config.video_generation_key,
     );
     lines.push(format!("{ALLOW_NETWORK_KEY}=1"));
+    lines.push(format!("{JWT_SECRET_KEY}={jwt_secret}"));
 
     let mut rendered = lines.join("\n");
     rendered.push('\n');
@@ -111,7 +120,26 @@ pub fn write_env_file(path: &Path, config: &EnvConfig) -> anyhow::Result<()> {
 fn is_launcher_managed_key(key: &str) -> bool {
     matches!(
         key,
-        TEXT_MODEL_KEY | IMAGE_GENERATION_KEY | VIDEO_GENERATION_KEY | ALLOW_NETWORK_KEY
+        TEXT_MODEL_KEY
+            | IMAGE_GENERATION_KEY
+            | VIDEO_GENERATION_KEY
+            | ALLOW_NETWORK_KEY
+            | JWT_SECRET_KEY
+    )
+}
+
+fn find_env_value<'a>(content: &'a str, target_key: &str) -> Option<&'a str> {
+    content.lines().find_map(|line| {
+        let (key, value) = parse_env_line(line)?;
+        (key == target_key).then_some(value)
+    })
+}
+
+fn generate_jwt_secret() -> String {
+    format!(
+        "bee-jwt-{}{}",
+        Uuid::new_v4().simple(),
+        Uuid::new_v4().simple()
     )
 }
 

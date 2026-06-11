@@ -51,6 +51,44 @@ function Update-ProcessPathFromRegistry {
 
 Update-ProcessPathFromRegistry
 
+function New-LocalSecret {
+    $bytes = New-Object byte[] 32
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($bytes)
+    } finally {
+        $rng.Dispose()
+    }
+    $hex = -join ($bytes | ForEach-Object { $_.ToString("x2") })
+    return "bee-jwt-$hex"
+}
+
+function Ensure-RuntimeEnvFile {
+    $envFile = Join-Path $ScriptDir ".env"
+    $hasValidJwtSecret = $false
+
+    if (Test-Path $envFile) {
+        foreach ($line in Get-Content $envFile) {
+            $trimmed = $line.Trim()
+            if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith("#")) { continue }
+            $parts = $trimmed.Split("=", 2)
+            if ($parts.Count -ne 2) { continue }
+            $key = $parts[0].Trim()
+            $value = $parts[1].Trim().Trim('"').Trim("'")
+            if ($key -eq "BEE__JWT__SECRET" -and $value.Length -ge 32) {
+                $hasValidJwtSecret = $true
+                break
+            }
+        }
+    } else {
+        New-Item -ItemType File -Force -Path $envFile | Out-Null
+    }
+
+    if (-not $hasValidJwtSecret) {
+        Add-Content -Path $envFile -Value "BEE__JWT__SECRET=$(New-LocalSecret)"
+    }
+}
+
 $Services = @(
     @{ Name = "gateway"; Binary = "beebotos-gateway.exe"; Port = 8000; Desc = "API Gateway" }
     @{ Name = "web";     Binary = "web-server.exe";       Port = 8090; Desc = "Web Frontend Server" }
@@ -74,6 +112,7 @@ function Import-EnvFile {
     }
 }
 
+Ensure-RuntimeEnvFile
 Import-EnvFile
 
 if ([string]::IsNullOrWhiteSpace($env:BEEHUB_PORT)) {
